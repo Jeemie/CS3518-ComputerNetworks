@@ -2,7 +2,7 @@
 
 Current functionality:
 
-Client:
+Client:  
 -Sends and receives messages from server  
 -Sends the QR file to the server using an array of bytes  
 
