@@ -57,7 +57,7 @@ int main(int argc, char const *argv[]) {
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_port = htons(PORT);
-    char *msg = "hey server";
+    const char *msg = "hey server";
     int bufSize = 1024;
     char buf[bufSize] = {0};
     if((sd = socket(AF_INET, SOCK_STREAM, 0 ))<0) {
