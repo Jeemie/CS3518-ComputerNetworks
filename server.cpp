@@ -121,16 +121,35 @@ int main(int argc, char const *argv[]) {
     int counter;
 
     if(argc > 1){
-        for(counter = 1; counter < argc; counter++;){
+        for(counter = 1; counter < argc; counter++){
+
+        size_t curr_cmd_length;
 
         std::string curr_cmd = argv[counter];
-        std::string curr_cmd_name;
-        std::string curr_cmd_arg;
+        size_t pos = curr_cmd.find("=");
+        //curr_cmd_length =
+        std::string curr_cmd_name = curr_cmd.substr(0,pos);
+        std::string curr_cmd_arg = curr_cmd.substr(pos+1);
 
-            switch(curr_cmd_name){
+            if(pos!=string::npos){
+                if(curr_cmd_name.compare("--PORT") == 0){
+                }
+                else if(curr_cmd_name.compare("--RATE_MSGS") == 0){
+                }
+                else if(curr_cmd_name.compare("--RATE_TIME") == 0){
+                }
+                else if(curr_cmd_name.compare("--MAX_USERS") == 0){
+                }
+                else if(curr_cmd_name.compare("--TIME_OUT") == 0){
+                }
+                else {
 
+                    printf("Option %s not found\n", curr_cmd_name.c_str());
+                    printf("Options:\n --PORT=<port number> --RATE_MSGS=<number msgs> --RATE_TIME=<number seconds> --MAX_USERS=<number of users> --TIME_OUT=<number of seconds>");
 
-
+                }
+                printf("Name=%s\n", curr_cmd_name.c_str());
+                printf("Arg=%s\n", curr_cmd_arg.c_str());
             }
 
         }
@@ -146,7 +165,6 @@ int main(int argc, char const *argv[]) {
 
     fd_set readfds;
 
-    int counter;
     for(counter = 0; counter < max_clients; counter++){ client_socket[counter] = 0; }
     // socket
 //    if ((sd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP))<0) {
