@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fstream>
-#define PORT 1234
+#define PORT 1337
 
 using namespace std;
 void err_sys(const char* err) {
@@ -25,13 +25,10 @@ int sendImage(int socket){
     if(QR_PIC == NULL){
         err_sys("Oopsie it's nullies");
     }
-
     fseek(QR_PIC, 0, SEEK_END);
 
     int size = ftell(QR_PIC);
-
     fseek(QR_PIC, 0, SEEK_SET);
-
     printf("Sending Image\n");
     //printf("%i\n", size);
     //sprintf(send_buffer, "%.4s", to_string(size).c_str());
@@ -43,13 +40,12 @@ int sendImage(int socket){
         fread(send_buffer, 1, sizeof(send_buffer), QR_PIC);
         write(socket, send_buffer, sizeof(send_buffer));
         //buf = fread(send_buffer, 1, sizeof(send_buffer), QR_PIC);
-        printf("Hello\n");
     }
 
     fclose(QR_PIC);
     //send(socket, QR_PIC, sizeof(QR_PIC), 0);
-
-
+    printf("Finished sending\n");
+    return 0;
 }
 
 int main(int argc, char const *argv[]) {
@@ -71,8 +67,8 @@ int main(int argc, char const *argv[]) {
     }
     send(sd, msg, strlen(msg), 0);
     printf("sent hey\n");
-    read_val = read(sd, buf, 1024);
-    printf("\n%s\n",buf);
     sendImage(sd);
+    read_val = read(sd, buf, 1024);
+    printf("Msg = %s\n", buf);
     close(sd);
 }
