@@ -17,6 +17,20 @@
 
 using namespace std;
 
+//TODO: Add required logging for error checking, successful interactions, unseccessful interations
+//TODO: parent should log attempts to connect over the MAX_USER limit, so it needs to listen for connections and check whether children disconnect
+//TODO: error return codes
+//TODO: MAX_SIZE
+//TODO: timeout
+//TODO: rate limiting
+//TODO: concurrent logging (at least add a comment on why its not needed due to line buffering)
+//TODO: test with different QR codes
+//TODO: check for memory leaks with valgrind
+//TODO: defaults for arguments
+//TODO: keep track of children PID (return value of fork)
+//TODO: use kill(0) and check for error to keep track of number of children
+
+//TODO: rename meep
 struct Meep {int returnCode; string msg;};
 
 
@@ -28,6 +42,7 @@ ostringstream getTime(){
 
     return ss;
 }
+
 
 void writeToLog(const char *text){
 
@@ -51,10 +66,15 @@ void err_sys(const char* err) {
 
 struct Meep recImage(int socket){
     Meep newMeep;
+
+    //TODO make this a tmpfile();
     FILE* image;
 
     FILE* tempF = std::tmpfile();
     int size, res;
+
+		//TODO: Reject oversized images
+    //TODO: 32 bit unsigned integer
 
     printf("Reading size!");
     read(socket, &size, sizeof(int));
@@ -118,7 +138,7 @@ struct Meep recImage(int socket){
 
 int main(int argc, char const *argv[]) {
 
-    int counter;
+    int counter, sd, new_sd, read_val, master_socket, client_socket[], max_clients, activity;
 
     if(argc > 1){
         for(counter = 1; counter < argc; counter++){
@@ -130,7 +150,7 @@ int main(int argc, char const *argv[]) {
         //curr_cmd_length =
         std::string curr_cmd_name = curr_cmd.substr(0,pos);
         std::string curr_cmd_arg = curr_cmd.substr(pos+1);
-
+						//TODO Function arguments from commandline
             if(pos!=string::npos){
                 if(curr_cmd_name.compare("--PORT") == 0){
                 }
@@ -160,17 +180,14 @@ int main(int argc, char const *argv[]) {
     address.sin_port = htons(PORT);
     char buf[1024] = {0};
     const char *msg = "hi client";
-    int sd, new_sd, read_val, master_socket, client_socket[10], max_clients = 10, activity;
     int opt = 1;
 
     fd_set readfds;
 
     for(counter = 0; counter < max_clients; counter++){ client_socket[counter] = 0; }
-    // socket
-//    if ((sd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP))<0) {
-//        err_sys("socket call failed");
-//    }
 
+
+    // socket
     if ((master_socket=socket(AF_INET,SOCK_STREAM,0))==0) {
         err_sys("socket call failed");
     }
