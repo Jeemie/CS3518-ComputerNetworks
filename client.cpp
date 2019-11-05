@@ -8,7 +8,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <fstream>
-#define PORT 1337
+#include <inttypes.h>
+#include <cstdint>
+#define PORT 2012
 
 using namespace std;
 void err_sys(const char* err) {
@@ -27,7 +29,7 @@ int sendImage(int socket){
     }
     fseek(QR_PIC, 0, SEEK_END);
 
-    int size = ftell(QR_PIC);
+    uint32_t size = ftell(QR_PIC);
     fseek(QR_PIC, 0, SEEK_SET);
     printf("Sending Image\n");
     //printf("%i\n", size);
@@ -50,12 +52,12 @@ int sendImage(int socket){
 
 int main(int argc, char const *argv[]) {
     int sd, read_val;
+    uint32_t urlSize;
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_port = htons(PORT);
     const char *msg = "hey server";
-    int bufSize = 1024;
-    char buf[bufSize] = {0};
+    uint32_t bufSize = 1024;
     if((sd = socket(AF_INET, SOCK_STREAM, 0 ))<0) {
         err_sys("Socket failure");
     }
@@ -66,9 +68,16 @@ int main(int argc, char const *argv[]) {
         err_sys("Connect failed");
     }
     send(sd, msg, strlen(msg), 0);
-    printf("sent hey\n");
+
+
     sendImage(sd);
-    read_val = read(sd, buf, 1024);
+    read(sd, &urlSize, sizeof(uint32_t));
+    //urlSize = ntohl(urlSize);
+    char buf[urlSize] = {};
+    //printf("%d is URL SIZE\n", urlSize);
+    
+    read_val = read(sd, buf, urlSize+1);
+    buf[urlSize] = '\0';
     printf("Msg = %s\n", buf);
     close(sd);
 }

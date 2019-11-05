@@ -10,9 +10,9 @@
 #include <iomanip> //put_time
 #include <ctime>
 #include <cstdio>
+#include <cstdint>
 #include <filesystem>
 #include <regex>
-#define PORT 1337
 #include <sys/socket.h>
 
 using namespace std;
@@ -30,8 +30,7 @@ using namespace std;
 //TODO: keep track of children PID (return value of fork)
 //TODO: use kill(0) and check for error to keep track of number of children
 
-//TODO: rename meep
-struct Meep {int returnCode; string msg;};
+struct Meep {uint32_t returnCode; string msg;};
 
 
 ostringstream getTime(){
@@ -67,17 +66,15 @@ void err_sys(const char* err) {
 struct Meep recImage(int socket){
     Meep newMeep;
 
-    //TODO make this a tmpfile();
-    FILE* image;
+    //FILE* image;
 
     FILE* tempF = std::tmpfile();
-    int size, res;
+    uint32_t size;
 
-		//TODO: Reject oversized images
-    //TODO: 32 bit unsigned integer
+    //TODO: Reject oversized images
 
-    printf("Reading size!");
-    read(socket, &size, sizeof(int));
+    printf("Reading size!\n");
+    read(socket, &size, sizeof(uint32_t));
     char imgBuf[size];
     //printf("Size = %i\n", size);
 
@@ -92,6 +89,7 @@ struct Meep recImage(int socket){
 
     printf("File read\n");
     printf("Converting!!\n");
+    /*
     image = fopen("temp.png", "w");
 
     if(image == NULL){
@@ -100,16 +98,18 @@ struct Meep recImage(int socket){
 
 
     fwrite(imgBuf, 1, sizeof(imgBuf), image);
-    fclose(image);
+    //fclose(image);
+    */
+
     ostringstream ss;
     const char* fileName = std::to_string(fileno(tempF)).c_str();
     //printf("NAME= %s\n", fileName);
-    ss << "java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner temp.png > ";
+    ss << "java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner course_qr.png > ";
     ss <<  fileName;
     //system("java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner temp.png > lol.txt");
     const char* cmd = strdup(ss.str().c_str());
     system(cmd);
-    fclose(image);
+    //fclose(image);
 
 
     string STRING = "No matches found";
@@ -138,8 +138,9 @@ struct Meep recImage(int socket){
 
 int main(int argc, char const *argv[]) {
 
-    int counter, sd, new_sd, read_val, master_socket, client_socket[], max_clients, activity;
+    int counter, sd, new_sd, read_val, master_socket, client_socket, max_users, activity, rate_msg, rate_time, time_out;
 
+    int PORT = 2012; //default
     if(argc > 1){
         for(counter = 1; counter < argc; counter++){
 
@@ -153,14 +154,19 @@ int main(int argc, char const *argv[]) {
 						//TODO Function arguments from commandline
             if(pos!=string::npos){
                 if(curr_cmd_name.compare("--PORT") == 0){
+                    PORT = stoi(curr_cmd_arg);
                 }
                 else if(curr_cmd_name.compare("--RATE_MSGS") == 0){
+                    rate_msg = stoi(curr_cmd_arg);
                 }
                 else if(curr_cmd_name.compare("--RATE_TIME") == 0){
+                    rate_time = stoi(curr_cmd_arg);
                 }
                 else if(curr_cmd_name.compare("--MAX_USERS") == 0){
+                    max_users = stoi(curr_cmd_arg);
                 }
                 else if(curr_cmd_name.compare("--TIME_OUT") == 0){
+                    time_out = stoi(curr_cmd_arg);
                 }
                 else {
 
@@ -184,7 +190,7 @@ int main(int argc, char const *argv[]) {
 
     fd_set readfds;
 
-    for(counter = 0; counter < max_clients; counter++){ client_socket[counter] = 0; }
+    //for(counter = 0; counter < max_users; counter++){ client_socket[counter] = 0; }
 
 
     // socket
@@ -251,7 +257,11 @@ int main(int argc, char const *argv[]) {
             //printf("%s\n",buf);
             Meep tempMeep = recImage(new_sd);
             if(tempMeep.returnCode == 0){//success
-                send(new_sd,tempMeep.msg.c_str(),strlen(tempMeep.msg.c_str()),0);
+                //uint32_t urlsize = htonl((uint32_t)strlen(tempMeep.msg.c_str()));
+                uint32_t urlsize = (uint32_t)strlen(tempMeep.msg.c_str());
+                printf("URL size = %d\n", (uint32_t)strlen(tempMeep.msg.c_str()));
+                write(new_sd,&urlsize,sizeof(urlsize));
+                send(new_sd,tempMeep.msg.c_str(), urlsize ,0);
                 printf("Temp meep!! %s \n", tempMeep.msg.c_str());
                 ss = getTime();
                 ss << inet_ntoa(clientAddr.sin_addr) << ": Successfully sent QR Code and decoded by server\n";
