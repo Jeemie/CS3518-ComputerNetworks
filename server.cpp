@@ -15,6 +15,8 @@
 #include <regex>
 #include <sys/socket.h>
 
+#define MAX_SIZE 10000
+
 using namespace std;
 
 //TODO: Add required logging for error checking, successful interactions, unseccessful interations
@@ -73,38 +75,64 @@ struct Meep recImage(int socket){
 
     //TODO: Reject oversized images
 
+    //Reading size from server #1
     printf("Reading size!\n");
     read(socket, &size, sizeof(uint32_t));
     char imgBuf[size];
-    //printf("Size = %i\n", size);
+    printf("Size = %i\n", size);
+    int okToGo = 0; //0 means go ahead, 1 means stop
+
+    if(size > MAX_SIZE){
+        okToGo = 1;
+    }
+
+    if(size == 0){
+        printf("Size is 0\n");
+        newMeep.msg = "Provided non-existent file\n";
+        newMeep.returnCode = 1;
+        return newMeep;
+
+    }
+
+    ostringstream ss;
+
+    //Write okToGo #2
+    write(socket, &okToGo, sizeof(okToGo));
+
+    if(okToGo == 1){ //Not receiving anything
+        newMeep.msg = "File too big\n";
+        newMeep.returnCode = 1;
+        return newMeep;
+    }
 
     printf("Reading image array\n");
     char* curr = imgBuf;
 
+    //#3
     int buf = read(socket, curr, size);
 
     if(buf < 0){
         err_sys("Error reading file");
     }
 
+    FILE* image;
     printf("File read\n");
     printf("Converting!!\n");
-    /*
+
     image = fopen("temp.png", "w");
 
     if(image == NULL){
         err_sys("Error opening converted file!");
     }
 
-
     fwrite(imgBuf, 1, sizeof(imgBuf), image);
-    //fclose(image);
-    */
+    fclose(image);
 
-    ostringstream ss;
+    //sleep(10);
+    //ostringstream ss;
     const char* fileName = std::to_string(fileno(tempF)).c_str();
     //printf("NAME= %s\n", fileName);
-    ss << "java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner course_qr.png > ";
+    ss << "java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner temp.png > ";
     ss <<  fileName;
     //system("java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner temp.png > lol.txt");
     const char* cmd = strdup(ss.str().c_str());
@@ -112,7 +140,7 @@ struct Meep recImage(int socket){
     //fclose(image);
 
 
-    string STRING = "No matches found";
+    string STRING = "No matches found\n";
     ifstream infile;
     infile.open(fileName);
     regex rgx("d result:\n(https:.*)\n");
@@ -128,6 +156,7 @@ struct Meep recImage(int socket){
         newMeep.msg = matches[1].str();
     }else {
         newMeep.msg = STRING;
+        newMeep.returnCode = 1;
     }
 
     remove(fileName);
@@ -138,7 +167,11 @@ struct Meep recImage(int socket){
 
 int main(int argc, char const *argv[]) {
 
-    int counter, sd, new_sd, read_val, master_socket, client_socket, max_users, activity, rate_msg, rate_time, time_out;
+    int counter, sd, new_sd, read_val, master_socket, client_socket, max_users, activity;
+    int time_out = 60;
+    int rate_msg = 3;
+    int rate_time= 60;
+
 
     int PORT = 2012; //default
     if(argc > 1){
@@ -217,10 +250,28 @@ int main(int argc, char const *argv[]) {
 
     socklen_t clilen = sizeof(clientAddr);
 
+    double max_rate = 1.0*rate_time/rate_msg;
+    double print = 25/5;
+    //printf("%f\n", max_rate);
+    time_t last_time = 0;
     while(true){
+
         if ((new_sd = accept(master_socket, (struct sockaddr*)&clientAddr, &clilen))<0) {
             err_sys("accept failure");
         }
+
+        time_t now = time(NULL);
+
+        //printf("%f is difference\n",)
+        if(now - max_rate < last_time){
+            //Too fast! Must wait
+            last_time = now;
+            close(new_sd);
+            break;
+            //Make client input again
+        }
+
+        last_time = now;
 
         //FORK HERE
         //accept up here and loop
@@ -249,24 +300,52 @@ int main(int argc, char const *argv[]) {
             //start work
             ss = getTime();
             ss << inet_ntoa(clientAddr.sin_addr) << ": Client connected to server!\n";
-
-            //writeToLog(ss.str().c_str());
+            time_t time_connected = time(NULL);
+            writeToLog(ss.str().c_str());
 
             //read
-            read_val = read(new_sd,buf,1024);
+            //read_val = read(new_sd,buf,1024);
             //printf("%s\n",buf);
+
+            //User timed out
+            if(time(NULL) - time_connected > time_out){
+                ss = getTime();
+                ss << inet_ntoa(clientAddr.sin_addr) << ": Client timed out\n";
+                writeToLog(ss.str().c_str());
+
+                close(new_sd);
+                printf("Connection closed! IP = %s, PORT = %i\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+                exit(0);
+            }
+
+
             Meep tempMeep = recImage(new_sd);
             if(tempMeep.returnCode == 0){//success
                 //uint32_t urlsize = htonl((uint32_t)strlen(tempMeep.msg.c_str()));
                 uint32_t urlsize = (uint32_t)strlen(tempMeep.msg.c_str());
                 printf("URL size = %d\n", (uint32_t)strlen(tempMeep.msg.c_str()));
+
+                //#4 size
                 write(new_sd,&urlsize,sizeof(urlsize));
-                send(new_sd,tempMeep.msg.c_str(), urlsize ,0);
+                //#5 send
+                read_val = read(new_sd,buf,1024);
+                //#6 write
+                write(new_sd,tempMeep.msg.c_str(), urlsize);
                 printf("Temp meep!! %s \n", tempMeep.msg.c_str());
                 ss = getTime();
                 ss << inet_ntoa(clientAddr.sin_addr) << ": Successfully sent QR Code and decoded by server\n";
                 writeToLog(ss.str().c_str());
             }
+
+            if(tempMeep.returnCode == 1){
+
+                ss = getTime();
+                ss << inet_ntoa(clientAddr.sin_addr) << tempMeep.msg;
+                writeToLog(ss.str().c_str());
+
+
+            }
+
             //close
 
             close(new_sd);
