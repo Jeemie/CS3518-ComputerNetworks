@@ -9,6 +9,12 @@
 
 using namespace std;
 
+bool isAscii(int testVal) {
+    bool isReturn = testVal==10 || testVal==11 || testVal==13;
+    bool isChar = testVal>31 && testVal<127;
+    return isReturn || isChar;
+}
+
 void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packetPointer) {
     u_int srcPort, dstPort;
     u_char *data;
@@ -53,13 +59,30 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             //the length of the data is equal to the length of the packet minus the combined headers
             len = header->len - headerSize;
 
-            //print data
-            for (int i = 0; i < len; i++) {cout << (char) data[i];}
+            for (int i = 0; i < len; i++) {
+                if(isAscii(data[i])){
+                    output += (char)data[i];
+                } else {
+                    output += ".";
+                }
+            }
 
+            //print data
+            //for (int i = 0; i < len; i++) {cout << (char) data[i];}
+            cout << endl << "_______________________________________________________________________________________________"<<endl;
+            cout << endl << "Source: " << src << ":" << srcPort << endl;
+            cout << "Destination: " << dst << ":" << dstPort << endl;
+            cout << "_______________________________________________________________________________________________"<<endl;
+
+
+            cout << output;
             //print ports
-            cout << "Source Port: " << srcPort << endl;
-            cout << "Destination Port: " << dstPort << endl;
+            //cout << "Source Port: " << srcPort << endl;
+            //cout << "Destination Port: " << dstPort << endl;
         }
+    }  else if (ntohs(eH->ether_type) == ETHERTYPE_ARP){
+        //cout << ntohs(eH->ether_type) << endl;
+        cout << "I'm an ARP packet dump :) I'm not implemented yet\n";
     }
 }
 
@@ -67,7 +90,7 @@ int main() {
     pcap_t *pcapture;
     char ebuf[PCAP_ERRBUF_SIZE];
 
-    pcapture = pcap_open_offline("/home/matt/CLionProjects/untitled/cap.pcap", ebuf);
+    pcapture = pcap_open_offline("cap.pcap", ebuf);
 
     if(pcapture == NULL) {
         cout << "read in failed" << endl;
