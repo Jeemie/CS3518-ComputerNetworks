@@ -1,0 +1,2 @@
+g++ main.cpp -lpcap -o proj2
+./proj2
