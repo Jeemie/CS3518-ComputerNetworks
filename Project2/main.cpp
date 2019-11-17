@@ -2,6 +2,7 @@
 #include <pcap.h>
 #include <string>
 #include <net/ethernet.h>
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/ether.h>
 #include <netinet/in.h>
@@ -30,7 +31,10 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
     u_char *data;
     const struct ether_header* eH;
     const struct ip* ipH;
+    const struct ether_arp* arpH;
     const struct tcphdr* tcpH;
+    const struct udphdr* udpH;
+    uint16_t arpop;
     char src[INET_ADDRSTRLEN], dst[INET_ADDRSTRLEN];
     int len;
     string output = "";
@@ -39,9 +43,18 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
     //read the packet into the ethernet header
     eH = (struct ether_header*) packetPointer;
+    headerSize = sizeof(struct ether_header);
 
     //check if the packet is IP
     if(ntohs(eH->ether_type) == ETHERTYPE_IP) {
+
+        cout << "_______________________________________________________________________________________________"<<endl;
+        cout << "Ethernet Header:" << endl;
+        //cout << "\tMAC Address: " << endl;
+        printf("\tTime = %s",ctime((const time_t*)&header->ts.tv_sec));
+        printf("\tDest = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_dhost));
+        printf("\tSource = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_shost));
+
         string eDest(ether_ntoa((const struct ether_addr *) &eH->ether_dhost));
         string eSrc(ether_ntoa((const struct ether_addr *) &eH->ether_shost));
         ethernetDest[eDest]++;
@@ -51,8 +64,8 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
         //printf("Dest = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_dhost));
         //printf("Source = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_shost));
+
         //read data into ipHeader, pointer offset by the ethernet header
-        headerSize = sizeof(struct ether_header);
         ipH = (struct ip*)(packetPointer + headerSize);
 
         //convert binary addresses into string
@@ -94,10 +107,11 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             //printf("%s,",ctime((const time_t*)&header->ts.tv_sec));
             //print data
             //for (int i = 0; i < len; i++) {cout << (char) data[i];}
-            //cout << endl << "_______________________________________________________________________________________________"<<endl;
-            //cout << endl << "Source: " << src << ":" << srcPort << endl;
-            //cout << "Destination: " << dst << ":" << dstPort << endl;
-            //cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "Source: " << src << ":" << srcPort << endl;
+            cout << "Destination: " << dst << ":" << dstPort << endl;
+            cout << "_______________________________________________________________________________________________"<<endl;
+
 
 
             //cout << output;
@@ -105,13 +119,58 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             //cout << "Source Port: " << srcPort << endl;
             //cout << "Destination Port: " << dstPort << endl;
         } else if (ipH->ip_p == IPPROTO_UDP){
+            headerSize += sizeof(struct ip);
+            udpH = (udphdr *) (packetPointer + headerSize);
+            srcPort = ntohs(udpH->source);
+            dstPort = ntohs(udpH->dest);
+            cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "UDP Header:" << endl;
+            cout << "\tSource: " << src << ":" << srcPort << endl;
+            cout << "\tDestination: " << dst << ":" << dstPort << endl;
+            cout << "_______________________________________________________________________________________________"<<endl;
+
+
+            //read in data, offset by ethernet, ip, and tcp header
+            headerSize += sizeof(struct udphdr);
+            data = (u_char *) (packetPointer + headerSize);
+
+            //the length of the data is equal to the length of the packet minus the combined headers
+            len = header->len - headerSize;
+
+            for (int i = 0; i < len; i++) {
+                if(isAscii(data[i])){
+                    output += (char)data[i];
+                } else {
+                    output += ".";
+                }
+            }
 
         }
     }  else if (ntohs(eH->ether_type) == ETHERTYPE_ARP){
-        //cout << ntohs(eH->ether_type) << endl;
-        cout << "I'm an ARP packet dump :) I'm not implemented yet\n";
+        struct in_addr *arpspa;
+        struct in_addr *arptpa;
+        struct ether_addr *arpsha;
+        struct ether_addr *arptha;
+        arpH = (struct ether_arp*)(packetPointer + headerSize);
+        arpop = ntohs(arpH->arp_op);
+        if(arpop == ARPOP_REQUEST) {
+            arpspa = (struct in_addr*) arpH->arp_spa;
+            arptpa = (struct in_addr*) arpH->arp_tpa;
+            arpsha = (struct ether_addr*) arpH->arp_sha;
+            arptha = (struct ether_addr*) arpH->arp_tha;
+            cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "ARP Header:" << endl;
+            printf("Sender IP: %s\n", inet_ntoa(*arpspa));
+            printf("Sender MAC = %s\n", ether_ntoa(arpsha));
+            printf("Target IP: %s\n", inet_ntoa(*arptpa));
+            printf("Target MAC = %s\n", ether_ntoa(arptha));
+            cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "_______________________________________________________________________________________________"<<endl;
+
+        }
     }
 }
+
 
 
 void printLists(){
