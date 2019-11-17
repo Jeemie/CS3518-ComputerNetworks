@@ -2,6 +2,7 @@
 #include <pcap.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
+#include <netinet/ether.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
@@ -33,6 +34,8 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
     //check if the packet is IP
     if(ntohs(eH->ether_type) == ETHERTYPE_IP) {
 
+        printf("Dest = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_dhost));
+        printf("Source = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_shost));
         //read data into ipHeader, pointer offset by the ethernet header
         headerSize = sizeof(struct ether_header);
         ipH = (struct ip*)(packetPointer + headerSize);
@@ -42,7 +45,7 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
         inet_ntop(AF_INET, &(ipH->ip_dst), dst, INET_ADDRSTRLEN);
 
         //check ip header for TCP or UDP
-        if (ipH->ip_p == IPPROTO_TCP || ipH->ip_p == IPPROTO_UDP) {
+        if (ipH->ip_p == IPPROTO_TCP) {
 
             //read tcp header in, header offset by both ethernet and IP header
             headerSize += sizeof(struct ip);
@@ -67,6 +70,7 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
                 }
             }
 
+            printf("%s,",ctime((const time_t*)&header->ts.tv_sec));
             //print data
             //for (int i = 0; i < len; i++) {cout << (char) data[i];}
             cout << endl << "_______________________________________________________________________________________________"<<endl;
@@ -75,10 +79,12 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             cout << "_______________________________________________________________________________________________"<<endl;
 
 
-            cout << output;
+            //cout << output;
             //print ports
             //cout << "Source Port: " << srcPort << endl;
             //cout << "Destination Port: " << dstPort << endl;
+        } else if (ipH->ip_p == IPPROTO_UDP){
+
         }
     }  else if (ntohs(eH->ether_type) == ETHERTYPE_ARP){
         //cout << ntohs(eH->ether_type) << endl;
