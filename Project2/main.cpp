@@ -10,20 +10,46 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unordered_map>
-
+#include <vector>
 using namespace std;
 
+int packetCount = 0, minSize = 999999, maxSize = 0, total = 0;
 unordered_map<string, int> ethernetDest;
 unordered_map<string, int> ethernetSrc;
 unordered_map<string, int> ipDest;
 unordered_map<string, int> ipSrc;
 unordered_map<u_int, int> udpDest;
 unordered_map<u_int, int> udpSrc;
+unordered_map<string, int> arpIPDest;
+unordered_map<string, int> arpIPSrc;
+unordered_map<string, int> arpMACDest;
+unordered_map<string, int> arpMACSrc;
+
 
 bool isAscii(int testVal) {
     bool isReturn = testVal==10 || testVal==11 || testVal==13;
     bool isChar = testVal>31 && testVal<127;
     return isReturn || isChar;
+}
+
+void handlePacket(int size){
+
+    if(size < minSize){minSize = size;}
+    if(size > maxSize){maxSize = size;}
+    total += size;
+    packetCount++;
+
+}
+
+void calcStats(){
+    int avg = 0;
+
+    avg = total/packetCount;
+
+    cout << "Avg Size = " << avg << endl;
+    cout << "Min packet size = " << minSize << endl;
+    cout << "Max packet size = " << maxSize << endl;
+
 }
 
 void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packetPointer) {
@@ -95,7 +121,7 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
             //the length of the data is equal to the length of the packet minus the combined headers
             len = header->len - headerSize;
-
+            handlePacket(len);
             for (int i = 0; i < len; i++) {
                 if(isAscii(data[i])){
                     output += (char)data[i];
@@ -123,6 +149,8 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             udpH = (udphdr *) (packetPointer + headerSize);
             srcPort = ntohs(udpH->source);
             dstPort = ntohs(udpH->dest);
+            udpDest[dstPort]++;
+            udpSrc[srcPort]++;
             cout << "_______________________________________________________________________________________________"<<endl;
             cout << "UDP Header:" << endl;
             cout << "\tSource: " << src << ":" << srcPort << endl;
@@ -136,7 +164,7 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
             //the length of the data is equal to the length of the packet minus the combined headers
             len = header->len - headerSize;
-
+            handlePacket(len);
             for (int i = 0; i < len; i++) {
                 if(isAscii(data[i])){
                     output += (char)data[i];
@@ -147,23 +175,36 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
         }
     }  else if (ntohs(eH->ether_type) == ETHERTYPE_ARP){
-        struct in_addr *arpspa;
-        struct in_addr *arptpa;
-        struct ether_addr *arpsha;
-        struct ether_addr *arptha;
+        //struct in_addr *arpspa;
+        //struct in_addr *arptpa;
+        //struct ether_addr *arpsha;
+        //struct ether_addr *arptha;
         arpH = (struct ether_arp*)(packetPointer + headerSize);
         arpop = ntohs(arpH->arp_op);
         if(arpop == ARPOP_REQUEST) {
-            arpspa = (struct in_addr*) arpH->arp_spa;
-            arptpa = (struct in_addr*) arpH->arp_tpa;
-            arpsha = (struct ether_addr*) arpH->arp_sha;
-            arptha = (struct ether_addr*) arpH->arp_tha;
+            //arpspa = (struct in_addr*) arpH->arp_spa;
+            string arpspa(inet_ntoa(*((struct in_addr*) arpH->arp_spa)));
+            string arpsha(ether_ntoa((struct ether_addr*) arpH->arp_sha));
+            string arptpa(inet_ntoa(*((struct in_addr*) arpH->arp_tpa)));
+            string arptha(ether_ntoa((struct ether_addr*) arpH->arp_tha));
+
+            arpIPSrc[arpspa]++;
+            arpIPDest[arptpa]++;
+            arpMACSrc[arpsha]++;
+            arpMACDest[arptha]++;
+            //arptpa = (struct in_addr*) arpH->arp_tpa;
+            //arpsha = (struct ether_addr*) arpH->arp_sha;
+            //arptha = (struct ether_addr*) arpH->arp_tha;
             cout << "_______________________________________________________________________________________________"<<endl;
             cout << "ARP Header:" << endl;
-            printf("Sender IP: %s\n", inet_ntoa(*arpspa));
-            printf("Sender MAC = %s\n", ether_ntoa(arpsha));
-            printf("Target IP: %s\n", inet_ntoa(*arptpa));
-            printf("Target MAC = %s\n", ether_ntoa(arptha));
+            cout << "Sender IP = " << arpspa << endl;
+            cout << "Sender MAC = " << arpsha << endl;
+            cout << "Target IP = " << arptpa << endl;
+            cout << "Target MAC = " << arptha << endl;
+            //printf("Sender IP: %s\n", inet_ntoa(*arpspa));
+            //printf("Sender MAC = %s\n", ether_ntoa(arpsha));
+            //printf("Target IP: %s\n", inet_ntoa(*arptpa));
+            //printf("Target MAC = %s\n", ether_ntoa(arptha));
             cout << "_______________________________________________________________________________________________"<<endl;
             cout << "_______________________________________________________________________________________________"<<endl;
 
@@ -182,6 +223,18 @@ void printLists(){
     for(auto elem: ipDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
     cout << "IP Sources!\n";
     for(auto elem: ipSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "UDP Port Destinations!\n";
+    for(auto elem: udpDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "UDP Port Sources!\n";
+    for(auto elem: udpSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "ARP IP Destinations!\n";
+    for(auto elem: arpIPDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "ARP IP Sources!\n";
+    for(auto elem: arpIPSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "ARP MAC Destinations!\n";
+    for(auto elem: arpMACDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "ARP MAC Sources!\n";
+    for(auto elem: arpMACSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
 }
 int main(int argc, char const *argv[]) {
     if(argc > 2 || argc < 2){
@@ -209,6 +262,7 @@ int main(int argc, char const *argv[]) {
             return 1;
         }
         printLists();
+        calcStats();
 
     }
 }
