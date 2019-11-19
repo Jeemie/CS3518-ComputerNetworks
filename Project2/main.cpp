@@ -14,16 +14,17 @@
 using namespace std;
 
 int packetCount = 0, minSize = 999999, maxSize = 0, total = 0;
-unordered_map<string, int> ethernetDest;
-unordered_map<string, int> ethernetSrc;
-unordered_map<string, int> ipDest;
-unordered_map<string, int> ipSrc;
-unordered_map<u_int, int> udpDest;
-unordered_map<u_int, int> udpSrc;
-unordered_map<string, int> arpIPDest;
-unordered_map<string, int> arpIPSrc;
-unordered_map<string, int> arpMACDest;
-unordered_map<string, int> arpMACSrc;
+unordered_map<string, int> ethDestMap;
+unordered_map<string, int> ethSrcMap;
+unordered_map<string, int> ipDestMap;
+unordered_map<string, int> ipSrcMap;
+unordered_map<u_int, int> udpDestMap;
+unordered_map<u_int, int> udpSrcMap;
+unordered_map<string, int> arpIPDestMap;
+unordered_map<string, int> arpIPSrcMap;
+unordered_map<string, int> arpMACDestMap;
+unordered_map<string, int> arpMACSrcMap;
+
 
 
 bool isAscii(int testVal) {
@@ -83,10 +84,10 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
         string eDest(ether_ntoa((const struct ether_addr *) &eH->ether_dhost));
         string eSrc(ether_ntoa((const struct ether_addr *) &eH->ether_shost));
-        ethernetDest[eDest]++;
-        ethernetSrc[eSrc]++;
+        ethDestMap[eDest]++;
+        ethSrcMap[eSrc]++;
 
-        //printf("Count: %i\n", ethernetDest[ether_ntoa((const struct ether_addr *) &eH->ether_dhost)]);
+        //printf("Count: %i\n", ethDestMap[ether_ntoa((const struct ether_addr *) &eH->ether_dhost)]);
 
         //printf("Dest = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_dhost));
         //printf("Source = %s\n", ether_ntoa((const struct ether_addr *) &eH->ether_shost));
@@ -101,8 +102,8 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
         string source(src);
         string dest(dst);
-        ipSrc[source]++;
-        ipDest[dest]++;
+        ipSrcMap[source]++;
+        ipDestMap[dest]++;
 
         //check ip header for TCP or UDP
         if (ipH->ip_p == IPPROTO_TCP) {
@@ -134,9 +135,11 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             //print data
             //for (int i = 0; i < len; i++) {cout << (char) data[i];}
             cout << "_______________________________________________________________________________________________"<<endl;
-            cout << "Source: " << src << ":" << srcPort << endl;
-            cout << "Destination: " << dst << ":" << dstPort << endl;
+            cout << "TCP Header: " << endl;
+            cout << "\tSource: " << src << ":" << srcPort << endl;
+            cout << "\tDestination: " << dst << ":" << dstPort << endl;
             cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "***********************************************************************************************"<<endl;
 
 
 
@@ -149,13 +152,14 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             udpH = (udphdr *) (packetPointer + headerSize);
             srcPort = ntohs(udpH->source);
             dstPort = ntohs(udpH->dest);
-            udpDest[dstPort]++;
-            udpSrc[srcPort]++;
+            udpDestMap[dstPort]++;
+            udpSrcMap[srcPort]++;
             cout << "_______________________________________________________________________________________________"<<endl;
             cout << "UDP Header:" << endl;
             cout << "\tSource: " << src << ":" << srcPort << endl;
             cout << "\tDestination: " << dst << ":" << dstPort << endl;
             cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "***********************************************************************************************"<<endl;
 
 
             //read in data, offset by ethernet, ip, and tcp header
@@ -175,10 +179,7 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
 
         }
     }  else if (ntohs(eH->ether_type) == ETHERTYPE_ARP){
-        //struct in_addr *arpspa;
-        //struct in_addr *arptpa;
-        //struct ether_addr *arpsha;
-        //struct ether_addr *arptha;
+
         arpH = (struct ether_arp*)(packetPointer + headerSize);
         arpop = ntohs(arpH->arp_op);
         if(arpop == ARPOP_REQUEST) {
@@ -188,57 +189,51 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             string arptpa(inet_ntoa(*((struct in_addr*) arpH->arp_tpa)));
             string arptha(ether_ntoa((struct ether_addr*) arpH->arp_tha));
 
-            arpIPSrc[arpspa]++;
-            arpIPDest[arptpa]++;
-            arpMACSrc[arpsha]++;
-            arpMACDest[arptha]++;
-            //arptpa = (struct in_addr*) arpH->arp_tpa;
-            //arpsha = (struct ether_addr*) arpH->arp_sha;
-            //arptha = (struct ether_addr*) arpH->arp_tha;
+            arpIPSrcMap[arpspa]++;
+            arpIPDestMap[arptpa]++;
+            arpMACSrcMap[arpsha]++;
+            arpMACDestMap[arptha]++;
+
             cout << "_______________________________________________________________________________________________"<<endl;
             cout << "ARP Header:" << endl;
             cout << "Sender IP = " << arpspa << endl;
             cout << "Sender MAC = " << arpsha << endl;
             cout << "Target IP = " << arptpa << endl;
             cout << "Target MAC = " << arptha << endl;
-            //printf("Sender IP: %s\n", inet_ntoa(*arpspa));
-            //printf("Sender MAC = %s\n", ether_ntoa(arpsha));
-            //printf("Target IP: %s\n", inet_ntoa(*arptpa));
-            //printf("Target MAC = %s\n", ether_ntoa(arptha));
             cout << "_______________________________________________________________________________________________"<<endl;
-            cout << "_______________________________________________________________________________________________"<<endl;
+            cout << "***********************************************************************************************"<<endl;
 
         }
     }
 }
 
-
-
-void printLists(){
-    cout << "Ethernet Destinations!\n";
-    for(auto elem: ethernetDest){ cout << "[Destination: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "Ethernet Sources!\n";
-    for(auto elem: ethernetSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "IP Destinations!\n";
-    for(auto elem: ipDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "IP Sources!\n";
-    for(auto elem: ipSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "UDP Port Destinations!\n";
-    for(auto elem: udpDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "UDP Port Sources!\n";
-    for(auto elem: udpSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "ARP IP Destinations!\n";
-    for(auto elem: arpIPDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "ARP IP Sources!\n";
-    for(auto elem: arpIPSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "ARP MAC Destinations!\n";
-    for(auto elem: arpMACDest){ cout << "[Dest: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    cout << "ARP MAC Sources!\n";
-    for(auto elem: arpMACSrc){ cout << "[Source: "<< elem.first << "] " << "[Count: " << elem.second << "]\n";}
+void printSDMap(const char* type, unordered_map<string, int> Smap, unordered_map<string, int> Dmap) {
+    cout << type << " Sources:" << endl;
+    for(auto elem: Smap){ cout << "\t[Source: " << elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << type << " Destinations:" << endl;
+    for(auto elem: Dmap){ cout << "\t[Destination: " << elem.first << "] " << "[Count: " << elem.second << "]\n";}
 }
+
+void printLists() {
+    printSDMap("Ethernet", ethSrcMap, ethDestMap);
+    printSDMap("IP", ipSrcMap, ipDestMap);
+    cout << "UDP Port Destinations: \n";
+    for(auto elem: udpDestMap){ cout << "\t[Dest: " << elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    cout << "UDP Port Sources: \n";
+    for(auto elem: udpSrcMap){ cout << "\t[Source: " << elem.first << "] " << "[Count: " << elem.second << "]\n";}
+    printSDMap("ARP MAC", arpMACSrcMap, arpMACDestMap);
+    printSDMap("ARP IP", arpIPSrcMap, arpIPDestMap);
+}
+
+
 int main(int argc, char const *argv[]) {
-    if(argc > 2 || argc < 2){
-        printf("Invalid arguments. Only arg should be file.\n");
+    if(argc < 2) {
+        printf("Must include capture file as argument");
+    }
+    if(argc > 2) {
+        printf("Too many arguments. Capture file is the only argument.\n");
+    }
+    if(argc > 2 || argc < 2) {
         exit(0);
     } else {
         std::string fileName = argv[1];
@@ -248,7 +243,7 @@ int main(int argc, char const *argv[]) {
         pcapture = pcap_open_offline(fileName.c_str(), ebuf);
 
         if (pcapture == NULL) {
-            cout << "read in failed" << endl;
+            cout << "Read in failed" << endl;
             exit(0);
         }
 
@@ -258,7 +253,7 @@ int main(int argc, char const *argv[]) {
         }
 
         if (pcap_loop(pcapture, 0, handler, NULL) < 0) {
-            cout << "handler read failed" << endl;
+            cout << "Read handler failed" << endl;
             return 1;
         }
         printLists();
