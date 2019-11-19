@@ -10,7 +10,7 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unordered_map>
-#include <vector>
+#include <set>
 using namespace std;
 
 int packetCount = 0, minSize = 999999, maxSize = 0, total = 0;
@@ -24,7 +24,7 @@ unordered_map<string, int> arpIPDestMap;
 unordered_map<string, int> arpIPSrcMap;
 unordered_map<string, int> arpMACDestMap;
 unordered_map<string, int> arpMACSrcMap;
-
+unordered_map<string, set<string>> arpMACMap;
 
 
 bool isAscii(int testVal) {
@@ -189,11 +189,13 @@ void handler(u_char* user, const struct pcap_pkthdr* header, const u_char* packe
             string arptpa(inet_ntoa(*((struct in_addr*) arpH->arp_tpa)));
             string arptha(ether_ntoa((struct ether_addr*) arpH->arp_tha));
 
-            arpIPSrcMap[arpspa]++;
-            arpIPDestMap[arptpa]++;
-            arpMACSrcMap[arpsha]++;
-            arpMACDestMap[arptha]++;
-
+            arpMACMap[arpsha].insert(arpspa);
+            arpMACMap[arptha].insert(arptpa);
+            //arpIPSrcMap[arpspa]++;
+            //arpIPDestMap[arptpa]++;
+            //arpMACSrcMap[arpsha]++;
+            //arpMACDestMap[arptha]++;
+            handlePacket(28);
             cout << "_______________________________________________________________________________________________"<<endl;
             cout << "ARP Header:" << endl;
             cout << "Sender IP = " << arpspa << endl;
@@ -221,8 +223,14 @@ void printLists() {
     for(auto elem: udpDestMap){ cout << "\t[Dest: " << elem.first << "] " << "[Count: " << elem.second << "]\n";}
     cout << "UDP Port Sources: \n";
     for(auto elem: udpSrcMap){ cout << "\t[Source: " << elem.first << "] " << "[Count: " << elem.second << "]\n";}
-    printSDMap("ARP MAC", arpMACSrcMap, arpMACDestMap);
-    printSDMap("ARP IP", arpIPSrcMap, arpIPDestMap);
+    //printSDMap("ARP MAC", arpMACSrcMap, arpMACDestMap);
+    //printSDMap("ARP IP", arpIPSrcMap, arpIPDestMap);
+    for(auto elem: arpMACMap){
+        cout << "\t[Source ARP MACs: " << elem.first << "] " << "[Associated IPs: " << endl;
+        for(auto ip: elem.second){cout << ip << endl;}
+        cout << "]\n";
+    }
+
 }
 
 
