@@ -22,8 +22,8 @@ int main() {
 
     memset(&server_addr,0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(1234);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(34567);
+    server_addr.sin_addr.s_addr = inet_addr("10.0.2.15");
 
     int buff;
     socklen_t length;
@@ -32,7 +32,7 @@ int main() {
     printf("sent\n");
     buff = recvfrom(sockfd, (char *) buffer, 1024, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
     buffer[buff] = '\0';
-    printf("%s\n", buffer);
+    printf("%s Hi\n", buffer);
     close(sockfd);
     return 0;
 
