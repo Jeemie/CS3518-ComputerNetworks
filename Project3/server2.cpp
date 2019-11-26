@@ -23,20 +23,32 @@ struct udp_header{
 struct ip_header {
     unsigned char iph_ihl;
     unsigned char iph_ver;
-    unsigned char iph_tos;
+    unsigned char iph_tos = 0;
     u_int16_t iph_len;
     u_int16_t iph_ident;
-    unsigned char iph_flag;
-    u_int16_t iph_offset;
+    unsigned char iph_flag = 0;
+    u_int16_t iph_offset = 0;
     unsigned char iph_ttl;
-    unsigned char iph_protocol;
-    u_int16_t iph_checksum;
+    unsigned char iph_protocol = 17;
+    u_int16_t iph_checksum = 0;
     u_int32_t iph_src;
     u_int32_t iph_dest;
 };
+
+unsigned short createCSum(unsigned short *buffer, int words){
+
+    unsigned long sum;
+    for(sum=0; words>0; words--){
+        sum+= *buffer++;
+        sum = ( sum >> 16) + (sum &0xffff);
+        sum += (sum >> 16);
+        return (unsigned short)(~sum);
+    }
+}
+
 int main() {
     int sockfd;
-    char buffer[8192], *data;
+    char buffer[1024], *data;
     struct ip_header *iph = (struct ip_header *) buffer;
     struct udp_header *udph = (struct udp_header *) (buffer + sizeof(struct ip_header));
 
@@ -50,12 +62,12 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    memset(buffer, 0 , 8192);
+    memset(buffer, 0 , 1024);
     memset(&server_addr, 0, sizeof(server_addr));
     memset(&client_addr, 0, sizeof(client_addr));
 
     server_addr.sin_family    = AF_INET; // IPv4
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_addr.s_addr = inet_addr("10.0.2.15");
     server_addr.sin_port = htons(34567);
 
 
@@ -68,7 +80,6 @@ int main() {
     iph->iph_len = sizeof(struct ip_header) + sizeof(struct udp_header) + strlen(data);
     iph->iph_ident = htons(54321);
     iph->iph_ttl = 128;
-    iph->iph_protocol = IPPROTO_UDP;
     iph->iph_src = server_addr.sin_addr.s_addr;
     iph->iph_dest = htons(atoi("192.69.69.69"));
 
