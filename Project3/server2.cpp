@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <string>
+#include <regex>
+#include <iostream>
+#include <sstream>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -46,7 +50,46 @@ unsigned short createCSum(unsigned short *buffer, int words){
     }
 }
 
-int main() {
+int main(int argc, char const *argv[]) {
+
+    struct sockaddr_in server_addr, client_addr, sa_test_dummy;
+    if(argc == 3){
+        std::string curr_cmd = argv[1];
+
+        if(curr_cmd.compare("--HOST") == 0 || curr_cmd.compare("--ROUTER") == 0){
+            std::string arg = argv[2];
+            std::istringstream ss(arg);
+            std::string token;
+
+            int counter = 0;
+            while(std::getline(ss, token, ':')) {
+                if(inet_pton(AF_INET, token.c_str(), &sa_test_dummy.sin_addr) != 1) {
+                    printf("You gave an invalid IP address somewhere :(\n");
+                } else {
+                    std::cout << token << "\n";
+                    counter++;
+                }
+            }
+            if(counter%2!=0){
+                printf("There is a lonely IP address somewhere..how depressing.\n");
+                exit(1);
+            }
+
+
+        } else {
+            printf("Options: --ROUTER <list of host IP mappings, --HOST <router IP>,<host IP>, <TTL>\n");
+            printf("Did you make sure the options are capitalized?\n");
+            exit(1);
+        }
+
+    } else {
+        printf("Invalid use of program.\n");
+        printf("Usage: ./server --option --args\n");
+        printf("Options: --ROUTER <list of host IP mappings, --HOST <router IP>,<host IP>, <TTL>\n");
+        exit(1);
+    }
+
+
     int sockfd;
     char buffer[1024], *data;
     struct ip_header *iph = (struct ip_header *) buffer;
@@ -55,7 +98,7 @@ int main() {
 
 
     const char *msg = "hello im the server\n";
-    struct sockaddr_in server_addr, client_addr;
+
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0))<0) {
         perror("socket call failed");
