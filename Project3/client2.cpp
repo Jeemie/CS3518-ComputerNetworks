@@ -56,10 +56,12 @@ int main() {
     printf("sent\n");
     //buff = recvfrom(sockfd, (char *) buffer, 1024, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
     buff = recvfrom(sockfd, ipH, sizeof(*ipH), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
-    printf("%i\n", sizeof(ipH));
 
     buffer[buff] = '\0';
-    printf("%i Hi\n", ipH->iph_ttl);
+    //printf("%i Hi\n", ipH->iph_ttl);
+    char str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &ipH->iph_dest, str, INET_ADDRSTRLEN);
+    printf("%s Hi\n", str);
     close(sockfd);
     return 0;
 

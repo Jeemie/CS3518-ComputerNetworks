@@ -130,7 +130,8 @@ int main(int argc, char const *argv[]) {
     iph->iph_ident = htons(54321);
     iph->iph_ttl = 123;
     iph->iph_src = server_addr.sin_addr.s_addr;
-    iph->iph_dest = htons(atoi("192.69.69.69"));
+    //iph->iph_dest = inet_addr("192.69.69.69");
+    inet_pton(AF_INET, "192.69.69.69", &iph->iph_dest);
 
     udph->src = htons(8080);
     udph->dest = htons(8080);
