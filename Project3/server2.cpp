@@ -53,6 +53,8 @@ unsigned short createCSum(unsigned short *buffer, int words){
 int main(int argc, char const *argv[]) {
 
     struct sockaddr_in server_addr, client_addr, sa_test_dummy;
+
+    /*
     if(argc == 3){
         std::string curr_cmd = argv[1];
 
@@ -88,11 +90,14 @@ int main(int argc, char const *argv[]) {
         printf("Options: --ROUTER <list of host IP mappings, --HOST <router IP>,<host IP>, <TTL>\n");
         exit(1);
     }
-
+*/
 
     int sockfd;
-    char buffer[1024], *data;
-    struct ip_header *iph = (struct ip_header *) buffer;
+    char buffer[4096], *data;
+   //struct ip_header *iph = (struct ip_header *) buffer;
+   struct ip_header *iph = (struct ip_header*)malloc(sizeof(struct ip_header));
+    //struct ip_header *iph = new ip_header;
+    struct ip_header ipH;
     struct udp_header *udph = (struct udp_header *) (buffer + sizeof(struct ip_header));
 
 
@@ -105,7 +110,8 @@ int main(int argc, char const *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    memset(buffer, 0 , 1024);
+    memset(iph, 0 , sizeof(ip_header));
+    memset(buffer, 0 , 4096);
     memset(&server_addr, 0, sizeof(server_addr));
     memset(&client_addr, 0, sizeof(client_addr));
 
@@ -122,7 +128,7 @@ int main(int argc, char const *argv[]) {
     iph->iph_tos = 0;
     iph->iph_len = sizeof(struct ip_header) + sizeof(struct udp_header) + strlen(data);
     iph->iph_ident = htons(54321);
-    iph->iph_ttl = 128;
+    iph->iph_ttl = 123;
     iph->iph_src = server_addr.sin_addr.s_addr;
     iph->iph_dest = htons(atoi("192.69.69.69"));
 
@@ -138,12 +144,12 @@ int main(int argc, char const *argv[]) {
     //if(setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one))<0){printf("Warning: HDRINCL not set\n");}
 
     int buff;
-    socklen_t length;
-    buff = recvfrom(sockfd, (char*) buffer, 1024, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
+    socklen_t length = sizeof(client_addr);
+    buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
     buffer[buff] = '\0';
-    printf("%s\n", buffer);
-//    sendto(sockfd, buffer, iph->iph_len, MSG_CONFIRM, (const struct sockaddr *) &client_addr, length);
-    sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM, (const struct sockaddr *) &client_addr, length);
+    printf("%i\n", sizeof(&iph));
+    sendto(sockfd, iph, sizeof(*iph), MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
+    //sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM, (const struct sockaddr *) &client_addr, length);
     printf("sent\n");
     return 0;
 }
