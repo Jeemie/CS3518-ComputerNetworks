@@ -97,8 +97,8 @@ int main(int argc, char const *argv[]) {
    //struct ip_header *iph = (struct ip_header *) buffer;
    struct ip_header *iph = (struct ip_header*)malloc(sizeof(struct ip_header));
     //struct ip_header *iph = new ip_header;
-    struct ip_header ipH;
-    struct udp_header *udph = (struct udp_header *) (buffer + sizeof(struct ip_header));
+    //struct ip_header ipH;
+    struct udp_header *udph = (struct udp_header *)malloc(sizeof(struct udp_header));
 
 
 
@@ -121,7 +121,7 @@ int main(int argc, char const *argv[]) {
 
 
     data = buffer + sizeof(struct ip_header) + sizeof(struct udp_header);
-    strcpy(data, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    strcpy(data, "HereIsSomeData");
 
     iph->iph_ihl = 5;
     iph->iph_ver = 4;
@@ -149,6 +149,7 @@ int main(int argc, char const *argv[]) {
     buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
     buffer[buff] = '\0';
     printf("%i\n", sizeof(&iph));
+    //sendto(sockfd, iph, sizeof(*iph), MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
     sendto(sockfd, iph, sizeof(*iph), MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
     //sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM, (const struct sockaddr *) &client_addr, length);
     printf("sent\n");
