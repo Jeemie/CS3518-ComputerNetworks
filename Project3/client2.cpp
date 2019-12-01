@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+
+
 struct udp_header{
 
     u_int32_t src;
@@ -40,7 +42,6 @@ struct datagram{
     char data[1000];
 
 };
-
 int main() {
     int sockfd;
 
