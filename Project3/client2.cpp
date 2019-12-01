@@ -13,7 +13,8 @@
 
 using namespace std;
 
-struct udp_header{
+
+struct udp_header {
     u_int32_t src;
     u_int32_t dest;
     u_int16_t packet_length;
@@ -42,7 +43,6 @@ struct datagram{
 };
 
 unordered_map<string, string> routingTable;
-
 int main() {
     int sockfd;
 

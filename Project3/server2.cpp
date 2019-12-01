@@ -16,11 +16,10 @@
 #include <netinet/udp.h>
 #include <netinet/in.h>
 #include <unordered_map>
-
-
 using namespace std;
 
-struct udp_header{
+
+struct udp_header {
 
     u_int32_t src;
     u_int32_t dest;
@@ -145,8 +144,10 @@ int main(int argc, char const *argv[]) {
 
 
     struct sockaddr_in server_addr, client_addr, sa_test_dummy;
+    std::string routerIp = "10.0.2.15";
+    std::string hostIp;
+    int ttl = 0;
 
-    /*
     if(argc == 3){
         std::string curr_cmd = argv[1];
 
@@ -156,22 +157,74 @@ int main(int argc, char const *argv[]) {
             std::string token;
 
             int counter = 0;
-            while(std::getline(ss, token, ':')) {
-                if(inet_pton(AF_INET, token.c_str(), &sa_test_dummy.sin_addr) != 1) {
-                    printf("You gave an invalid IP address somewhere :(\n");
-                } else {
-                    std::cout << token << "\n";
-                    counter++;
+            int key = 0;
+            if(curr_cmd.compare("--ROUTER") == 0){
+                while(std::getline(ss, token, ',')) {
+                    std::stringstream pair(token);
+                    std::string key;
+                    std::string value;
+
+                    size_t pos = 0;
+
+                    int strLength = token.length();
+                    pos = token.find(':');
+                    key = token.substr(0, pos);
+                    value = token.substr(pos+1, strLength);
+                    if (inet_pton(AF_INET, value.c_str(), &sa_test_dummy.sin_addr) != 1 || inet_pton(AF_INET, key.c_str(), &sa_test_dummy.sin_addr) != 1) {
+                        printf("You gave an invalid IP address somewhere :(\n");
+                        exit(1);
+                    } else {
+                        routingTable[key] = value;
+                        std::cout << key << '\n';
+                        std::cout << value << '\n';
+                        counter++;
+                    }
+                    printf("Hi?\n");
                 }
-            }
-            if(counter%2!=0){
-                printf("There is a lonely IP address somewhere..how depressing.\n");
-                exit(1);
+                if(counter%2!=0){
+                    printf("There is a lonely IP address somewhere..how depressing.\n");
+                    exit(1);
+                }
+            } else if(curr_cmd.compare("--HOST") == 0) {
+                while(std::getline(ss, token, ',')) {
+                    if(inet_pton(AF_INET, token.c_str(), &sa_test_dummy.sin_addr) != 1 && counter !=2) {
+                        printf("You gave an invalid IP address somewhere :(\n");
+                        exit(1);
+                    } else {
+
+                        switch(counter){
+                            case 0:
+                                routerIp = token;
+                                break;
+                            case 1:
+                                hostIp = token;
+                                break;
+                            case 2:
+                                int test = atoi(token.c_str());
+
+                                if(test > 0){
+                                    ttl = test;
+                                } else{
+                                    printf("Y'all didn't give a positive integer for TTL or had it at 0.\n");
+                                    exit(1);
+                                }
+
+                                break;
+                        }
+                        //std::cout << token << "\n";
+                        counter++;
+                    }
+                }
+
+                if(counter !=3){
+                    printf("Not enough arguments. --HOST <router IP>,<host IP>,<TTL>\n");
+                    exit(1);
+                }
             }
 
 
         } else {
-            printf("Options: --ROUTER <list of host IP mappings, --HOST <router IP>,<host IP>, <TTL>\n");
+            printf("Options: --ROUTER <list of host IP mappings, --HOST <router IP>,<host IP>,<TTL>\n");
             printf("Did you make sure the options are capitalized?\n");
             exit(1);
         }
@@ -182,8 +235,8 @@ int main(int argc, char const *argv[]) {
         printf("Options: --ROUTER <list of host IP mappings, --HOST <router IP>,<host IP>, <TTL>\n");
         exit(1);
     }
-*/
 
+    //printf("%s\n%s\n%i\n", routerIp.c_str(), hostIp.c_str(), ttl);
     int sockfd;
     char buffer[4096], *data;
     struct datagram *packet = (struct datagram *)malloc(sizeof(struct datagram));
@@ -191,6 +244,7 @@ int main(int argc, char const *argv[]) {
     //struct udp_header *udph = (struct udp_header *)malloc(sizeof(struct udp_header));
 
     const char *msg = "hello im the server\n";
+
 
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0))<0) {
@@ -204,7 +258,7 @@ int main(int argc, char const *argv[]) {
     memset(&client_addr, 0, sizeof(client_addr));
 
     server_addr.sin_family    = AF_INET; // IPv4
-    server_addr.sin_addr.s_addr = inet_addr("10.0.2.15");
+    server_addr.sin_addr.s_addr = inet_addr(routerIp.c_str());
     server_addr.sin_port = htons(34567);
 
 
@@ -216,7 +270,7 @@ int main(int argc, char const *argv[]) {
     packet->iph.iph_tos = 0;
     packet->iph.iph_len = sizeof(struct datagram);
     packet->iph.iph_ident = htons(54321);
-    packet->iph.iph_ttl = 420;
+    packet->iph.iph_ttl = ttl;
     packet->iph.iph_src = server_addr.sin_addr.s_addr;
     inet_pton(AF_INET, "192.69.69.69", &packet->iph.iph_dest);
 
