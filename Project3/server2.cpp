@@ -15,6 +15,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <netinet/in.h>
+
 struct udp_header{
 
     u_int32_t src;
@@ -25,18 +26,26 @@ struct udp_header{
 };
 
 struct ip_header {
-    unsigned char iph_ihl;
-    unsigned char iph_ver;
-    unsigned char iph_tos = 0;
+    u_int16_t iph_ihl;
+    u_int16_t iph_ver;
+    u_int16_t iph_tos = 0;
     u_int16_t iph_len;
     u_int16_t iph_ident;
-    unsigned char iph_flag = 0;
+    u_int16_t iph_flag = 0;
     u_int16_t iph_offset = 0;
-    unsigned char iph_ttl;
-    unsigned char iph_protocol = 17;
+    u_int16_t iph_ttl;
+    u_int16_t iph_protocol = 17;
     u_int16_t iph_checksum = 0;
     u_int32_t iph_src;
     u_int32_t iph_dest;
+};
+
+struct datagram{
+
+    udp_header udph;
+    ip_header iph;
+    char data[1000];
+
 };
 
 unsigned short createCSum(unsigned short *buffer, int words){
@@ -94,13 +103,9 @@ int main(int argc, char const *argv[]) {
 
     int sockfd;
     char buffer[4096], *data;
-   //struct ip_header *iph = (struct ip_header *) buffer;
-   struct ip_header *iph = (struct ip_header*)malloc(sizeof(struct ip_header));
-    //struct ip_header *iph = new ip_header;
-    //struct ip_header ipH;
-    struct udp_header *udph = (struct udp_header *)malloc(sizeof(struct udp_header));
-
-
+    struct datagram *packet = (struct datagram *)malloc(sizeof(struct datagram));
+    //struct ip_header *iph = (struct ip_header*)malloc(sizeof(struct ip_header));
+    //struct udp_header *udph = (struct udp_header *)malloc(sizeof(struct udp_header));
 
     const char *msg = "hello im the server\n";
 
@@ -110,7 +115,7 @@ int main(int argc, char const *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    memset(iph, 0 , sizeof(ip_header));
+    //memset(iph, 0 , sizeof(ip_header));
     memset(buffer, 0 , 4096);
     memset(&server_addr, 0, sizeof(server_addr));
     memset(&client_addr, 0, sizeof(client_addr));
@@ -120,37 +125,40 @@ int main(int argc, char const *argv[]) {
     server_addr.sin_port = htons(34567);
 
 
-    data = buffer + sizeof(struct ip_header) + sizeof(struct udp_header);
+    data = buffer;
     strcpy(data, "HereIsSomeData");
 
-    iph->iph_ihl = 5;
-    iph->iph_ver = 4;
-    iph->iph_tos = 0;
-    iph->iph_len = sizeof(struct ip_header) + sizeof(struct udp_header) + strlen(data);
-    iph->iph_ident = htons(54321);
-    iph->iph_ttl = 123;
-    iph->iph_src = server_addr.sin_addr.s_addr;
-    //iph->iph_dest = inet_addr("192.69.69.69");
-    inet_pton(AF_INET, "192.69.69.69", &iph->iph_dest);
+    packet->iph.iph_ihl = 5;
+    packet->iph.iph_ver = 4;
+    packet->iph.iph_tos = 0;
+    packet->iph.iph_len = sizeof(struct datagram);
+    packet->iph.iph_ident = htons(54321);
+    packet->iph.iph_ttl = 420;
+    packet->iph.iph_src = server_addr.sin_addr.s_addr;
+    inet_pton(AF_INET, "192.69.69.69", &packet->iph.iph_dest);
 
-    udph->src = htons(8080);
-    udph->dest = htons(8080);
+    packet->udph.src = htons(8080);
+    packet->udph.dest = htons(8080);
 
     if(bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) <0) {
         perror("bind call failed\n");
     }
 
+
+    strcpy(packet->data, "HereIsSomeData");
+    //printf("%i\n", packet->iph.iph_ihl);
+    //printf("%s\n", packet->data);
     int one = 1;
     const int *val = &one;
     //if(setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one))<0){printf("Warning: HDRINCL not set\n");}
 
     int buff;
+
     socklen_t length = sizeof(client_addr);
     buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
     buffer[buff] = '\0';
-    printf("%i\n", sizeof(&iph));
     //sendto(sockfd, iph, sizeof(*iph), MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
-    sendto(sockfd, iph, sizeof(*iph), MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
+    sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
     //sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM, (const struct sockaddr *) &client_addr, length);
     printf("sent\n");
     return 0;
