@@ -9,15 +9,16 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <unordered_map>
+
+using namespace std;
 
 
-struct udp_header{
-
+struct udp_header {
     u_int32_t src;
     u_int32_t dest;
     u_int16_t packet_length;
     u_int8_t checksum;
-
 };
 
 struct ip_header {
@@ -36,12 +37,12 @@ struct ip_header {
 };
 
 struct datagram{
-
     udp_header udph;
     ip_header iph;
     char data[1000];
-
 };
+
+unordered_map<string, string> routingTable;
 int main() {
     int sockfd;
 

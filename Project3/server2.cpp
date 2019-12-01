@@ -16,8 +16,10 @@
 #include <netinet/udp.h>
 #include <netinet/in.h>
 #include <unordered_map>
+using namespace std;
 
-struct udp_header{
+
+struct udp_header {
 
     u_int32_t src;
     u_int32_t dest;
@@ -60,9 +62,86 @@ unsigned short createCSum(unsigned short *buffer, int words){
     }
 }
 
+unordered_map<string, string> routingTable;
 
-std::unordered_map<std::string,std::string> routingTable;
 int main(int argc, char const *argv[]) {
+
+    string s0 = "f";
+    string s1 = "g";
+    routingTable.insert(pair<string,string>(s0,s1));
+    routingTable.insert(pair<string,string>(string("a"),string("b")));
+    routingTable[string("test")]=string("value");
+
+    for( auto str = routingTable.begin(); str != routingTable.end(); ++str) {
+        cout << str->first; //key output
+        string& value = str-> second;
+        cout << ":" << value << endl;
+    }
+    cout<< "there is " << routingTable.at(s0) << " at " << s0 << endl;
+
+    //receive strings from terminal
+    string test = string("8.8.8.8");
+    string test2 = string("1.1.1.1");
+    cout << "test: " << test << endl;
+    cout << "test2: " << test2 << endl;
+
+    //convert strings to IP addresses for testing
+    in_addr* testIP;
+    inet_pton(AF_INET, test.c_str(), &testIP);
+
+    in_addr* test2IP;
+    inet_pton(AF_INET, test2.c_str(), &test2IP);
+
+    //convert back to store into map
+    char test3[INET_ADDRSTRLEN];
+    char test4[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &testIP, test3, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &test2IP, test4, INET_ADDRSTRLEN);
+    string stest3 = string(test3);
+    string stest4 = string(test4);
+    cout << stest3 << endl;
+    cout << stest4 << endl;
+
+    //AF_INET, struct, str, INET_ADDRSTRLEN
+
+    //put strings into table
+    routingTable.insert(pair<string,string>(stest3,stest4));
+
+    //string to lookup received from packet
+    string test5 = "8.8.8.8";
+
+    cout << test5 << " is " << routingTable.at(test5) << endl;
+
+    //if (router), (IP:oIP), ... -> routingTable.insert
+    //router should allow connections from INADDR_ANY
+    //once router receives a connection, it should wait for a packet size, followed by the packets
+    //packets should contain a overlay address
+    //realADDRstr = routingTable.at(overlayIP)
+    //create sock_addr* saddr for connection
+    //saddr.sin_addr = inet_pton(realADDRstr) -> INET_ADDR
+    //bind to saddr, create new overlay packet with overlayIP
+    //sendTo(bindsocket, newPkt, sizeof(datagram), 0, (struct sock_addr) &saddr, sizeof(&saddr))
+
+    //if (client), (serverIP)
+    //wait for pkt size on one thread, read source overlay IP
+    //check if dest overlay IP addr inside packet is correct for the client, else drop it
+    //check if the src of the received packet was the router, if not, drop it
+    //wait for packets and check for correct sizes and continuity and order
+    //check if sourceOverlayIP.bin exists, if not, create it
+    //append to sourceOverlayIP.bin
+
+    //on other thread:
+    //scan for files that fit correct shape (regex?)
+    //read in overlay addr from file name
+    //read in size of packet, create a packet to send the size
+    //send the file in groups of 1000 bytes - any info we need to send
+    //
+
+
+
+
+
+
 
     struct sockaddr_in server_addr, client_addr, sa_test_dummy;
     std::string routerIp = "10.0.2.15";
