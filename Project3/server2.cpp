@@ -55,7 +55,7 @@ struct datagram{
 unordered_map<string, string> routingTable;
 
 void createPacket(datagram *packet, in_addr_t dst, in_addr_t src, u_int16_t ttl){
-    
+
     packet->iph.iph_ihl = 5;
     packet->iph.iph_ver = 4;
     packet->iph.iph_tos = 0;
@@ -72,18 +72,15 @@ void createPacket(datagram *packet, in_addr_t dst, in_addr_t src, u_int16_t ttl)
 
 int main(int argc, char const *argv[]) {
 
-    string s0 = "f";
+/*    string s0 = "f";
     string s1 = "g";
     routingTable.insert(pair<string,string>(s0,s1));
     routingTable.insert(pair<string,string>(string("a"),string("b")));
-    routingTable[string("test")]=string("value");
-    int sockfd;
+    routingTable[string("test")]=string("value");*/
+    int sockfd, buff;
     char buffer[4096], *data;
     struct datagram *packet = (struct datagram *)malloc(sizeof(struct datagram));
-    //struct ip_header *iph = (struct ip_header*)malloc(sizeof(struct ip_header));
-    //struct udp_header *udph = (struct udp_header *)malloc(sizeof(struct udp_header));
 
-    const char *msg = "hello im the server\n";
     bool isClient = false;
 
 /*    for( auto str = routingTable.begin(); str != routingTable.end(); ++str) {
@@ -163,10 +160,10 @@ int main(int argc, char const *argv[]) {
                         counter++;
                     }
                 }
-                if(counter%2!=0){
+/*                if(counter%2!=0){
                     printf("There is a lonely IP address somewhere..how depressing.\n");
                     exit(1);
-                }
+                }*/
             } else if(curr_cmd.compare("--HOST") == 0) {
                 isClient = true;
                 while(std::getline(ss, token, ',')) {
@@ -220,6 +217,12 @@ int main(int argc, char const *argv[]) {
     }
 
 
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0))<0) {
+        perror("socket call failed");
+        exit(EXIT_FAILURE);
+    }
+
+
     //I'm host stuff c:
     if(isClient){
         //if (client), (serverIP)
@@ -236,6 +239,48 @@ int main(int argc, char const *argv[]) {
         //read in size of packet, create a packet to send the size
         //send the file in groups of 1000 bytes - any info we need to send
         //
+
+
+
+        //memset(iph, 0 , sizeof(ip_header));
+        memset(buffer, 0 , 4096);
+        memset(packet, 0, sizeof(datagram));
+        memset(&server_addr, 0, sizeof(server_addr));
+        memset(&client_addr, 0, sizeof(client_addr));
+
+        server_addr.sin_family    = AF_INET; // IPv4
+
+
+        inet_pton(AF_INET, routerIp.c_str(), &server_addr.sin_addr.s_addr);
+        inet_pton(AF_INET, routerIp.c_str(), &client_addr.sin_addr.s_addr);
+
+
+        //server_addr.sin_addr.s_addr = inet_addr(routerIp.c_str());
+        cout << "here: " <<routerIp.c_str() << endl;
+        server_addr.sin_port = htons(34567);
+
+/*        if(bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) <0) {
+            perror("bind call failed\n");
+        }*/
+
+        createPacket(packet, client_addr.sin_addr.s_addr, server_addr.sin_addr.s_addr, ttl);
+
+        char test4[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &packet->iph.iph_dest, test4, INET_ADDRSTRLEN);
+        string stest4 = string(test4);
+        cout << stest4 << endl;
+
+        strcpy(packet->data, "HereIsSomeData");
+
+        socklen_t length = sizeof(client_addr);
+        //buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
+        buffer[buff] = '\0';
+        sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+        printf("sent\n");
+        buff = recvfrom(sockfd, packet, packet->iph.iph_len, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
+        printf("Received\n");
+        printf("%i Hi\n", packet->iph.iph_ttl);
+
     } else { //I'm a router :c
 
         //if (router), (IP:oIP), ... -> routingTable.insert
@@ -248,51 +293,61 @@ int main(int argc, char const *argv[]) {
         //saddr.sin_addr = inet_pton(realADDRstr) -> INET_ADDR
         //bind to saddr, create new overlay packet with overlayIP
         //sendTo(bindsocket, newPkt, sizeof(datagram), 0, (struct sock_addr) &saddr, sizeof(&saddr))
+        //receive connection from any client
+
+        char name[INET_ADDRSTRLEN];
+        const int serverPort = 34568;
+        memset(&server_addr, 0, sizeof(server_addr));
+        server_addr.sin_family    = AF_INET; // IPv4
+        server_addr.sin_addr.s_addr = INADDR_ANY;
+        server_addr.sin_port = htons(34567);
+
+        if(bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) <0) {
+            perror("bind call failed\n");
+        }
+        while(true) {
+
+            //read message into buffer
+            socklen_t length = sizeof(server_addr);
+            //buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+            buff = recvfrom(sockfd, packet, sizeof(struct datagram) , MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+            struct sockaddr_in send_addr;
+            memset(&send_addr,0,sizeof(send_addr));
+
+            printf("%i Hi\n", packet->iph.iph_ttl);
+            inet_ntop(AF_INET, &packet->iph.iph_dest, name, INET_ADDRSTRLEN);
+            //std::cout<<"name: "<<packet->iph.iph_dest <<"\n";
+            packet->iph.iph_ttl--;
+            if(packet->iph.iph_ttl <= 0){
+                printf("Packet dropped. :( TTL = < 0 \n");
+            } else {
+                send_addr.sin_family = AF_INET;
+/*                char test4[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &packet->iph.iph_dest, test4, INET_ADDRSTRLEN);
+                string stest4 = string(test4);
+                cout << stest4 << endl;*/
+
+                std::string key = string(name);
+                std::string destination = routingTable.at(key);
+                inet_pton(AF_INET, destination.c_str(), &send_addr.sin_addr.s_addr);
+                send_addr.sin_port = htons(34567);
+
+                std::cout << destination << "Dest\n";
+                //send_addr.sin_addr.s_addr = inet_addr(destination.c_str());
+
+
+
+
+                sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &send_addr, length);
+
+            }
+            //read from message: TTL, decrement, forward to IP address in packet
+
+        }
     }
     //printf("%s\n%s\n%i\n", routerIp.c_str(), hostIp.c_str(), ttl);
 
 
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0))<0) {
-        perror("socket call failed");
-        exit(EXIT_FAILURE);
-    }
-
-    //memset(iph, 0 , sizeof(ip_header));
-    memset(buffer, 0 , 4096);
-    memset(packet, 0, sizeof(datagram));
-    memset(&server_addr, 0, sizeof(server_addr));
-    memset(&client_addr, 0, sizeof(client_addr));
-
-    server_addr.sin_family    = AF_INET; // IPv4
-    server_addr.sin_addr.s_addr = inet_addr(routerIp.c_str());
-    server_addr.sin_port = htons(34567);
-
-    createPacket(packet, client_addr.sin_addr.s_addr, server_addr.sin_addr.s_addr, ttl);
-//    data = buffer;
-//    strcpy(data, "HereIsSomeData");
-
-
-
-    if(bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) <0) {
-        perror("bind call failed\n");
-    }
-
-
-    strcpy(packet->data, "HereIsSomeData");
-
-    int one = 1;
-    const int *val = &one;
-    //if(setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one))<0){printf("Warning: HDRINCL not set\n");}
-
-    int buff;
-
-    socklen_t length = sizeof(client_addr);
-    buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
-    buffer[buff] = '\0';
-    //sendto(sockfd, iph, sizeof(*iph), MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
-    sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &client_addr, length);
-    //sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM, (const struct sockaddr *) &client_addr, length);
-    printf("sent\n");
     return 0;
 }
