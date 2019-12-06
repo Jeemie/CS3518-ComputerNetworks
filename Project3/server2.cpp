@@ -225,6 +225,11 @@ int main(int argc, char const *argv[]) {
 
     //I'm host stuff c:
     if(isClient){
+
+
+
+
+
         //if (client), (serverIP)
         //wait for pkt size on one thread, read source overlay IP
         //check if dest overlay IP addr inside packet is correct for the client, else drop it
@@ -263,6 +268,9 @@ int main(int argc, char const *argv[]) {
             perror("bind call failed\n");
         }*/
 
+
+
+
         createPacket(packet, client_addr.sin_addr.s_addr, server_addr.sin_addr.s_addr, ttl);
 
         char test4[INET_ADDRSTRLEN];
@@ -275,12 +283,45 @@ int main(int argc, char const *argv[]) {
         socklen_t length = sizeof(client_addr);
         //buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
         buffer[buff] = '\0';
-        sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+
+        /*sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
         printf("sent\n");
         buff = recvfrom(sockfd, packet, packet->iph.iph_len, MSG_WAITALL, (struct sockaddr *) &client_addr, &length);
         printf("Received\n");
         printf("%i Hi\n", packet->iph.iph_ttl);
 
+*/
+
+        FILE* bin;
+        uint32_t size = 0;
+        int okToGo = 1;
+        //printf("%s\n", filename);
+        bin = fopen("test.bin", "r");
+
+        if(bin != NULL) {
+            fseek(bin, 0, SEEK_END);
+
+            size = ftell(bin);
+            fseek(bin, 0, SEEK_SET);
+            printf("Sending Image\n");
+
+            sendto(sockfd, &size, sizeof(size), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+            buff = recvfrom(sockfd, &okToGo, sizeof(okToGo), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+
+            char send_buffer[1000], read_buffer[1000];
+            if(okToGo == 0){
+                cout << "It's all good to go :D\n";
+                while(!feof(bin)){ //write #3
+                    fread(send_buffer, 1, sizeof(send_buffer), bin);
+                    sendto(sockfd, send_buffer, sizeof(send_buffer), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+                    //write(socket, send_buffer, sizeof(send_buffer));
+                    //buf = fread(send_buffer, 1, sizeof(send_buffer), QR_PIC);
+                }
+
+            }
+        }
+
+        cout << size << " is the size :D \n";
     } else { //I'm a router :c
 
         //if (router), (IP:oIP), ... -> routingTable.insert
@@ -307,13 +348,57 @@ int main(int argc, char const *argv[]) {
         }
         while(true) {
 
+
+
+
+
+
             //read message into buffer
             socklen_t length = sizeof(server_addr);
             //buff = recvfrom(sockfd, (char*) buffer, 4096, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
-            buff = recvfrom(sockfd, packet, sizeof(struct datagram) , MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+            //buff = recvfrom(sockfd, packet, sizeof(struct datagram) , MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
             struct sockaddr_in send_addr;
             memset(&send_addr,0,sizeof(send_addr));
 
+            uint32_t size;
+            int okToGo = 1;
+
+            //TODO: Reject oversized images
+
+            //Reading size from server #1
+            printf("Reading size!\n");
+            //read(sockfd, &size, sizeof(uint32_t));
+            buff = recvfrom(sockfd, &size, sizeof(size), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+            cout << size << "Here is the router size o-o\n";
+
+            if(size > 0){okToGo = 0;}
+
+            sendto(sockfd, &okToGo, sizeof(okToGo), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+
+            char imgBuf[size];
+            char* curr = imgBuf;
+
+            //#3
+            //int buf = read(socket, curr, size);
+            buff = recvfrom(sockfd, curr, size, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+
+            if(buff < 0){
+                cout << "File no read :(\n";
+            } else {
+                cout << "File read :DD\n";
+
+                FILE* image;
+
+                image = fopen("copy2.bin", "w");
+
+                if(image == NULL){
+                    cout << "Can't open copy file :c\n";
+                }
+
+                fwrite(imgBuf, 1, sizeof(imgBuf), image);
+                fclose(image);
+            }
+            
             printf("%i Hi\n", packet->iph.iph_ttl);
             inet_ntop(AF_INET, &packet->iph.iph_dest, name, INET_ADDRSTRLEN);
             //std::cout<<"name: "<<packet->iph.iph_dest <<"\n";
@@ -334,9 +419,6 @@ int main(int argc, char const *argv[]) {
 
                 std::cout << destination << "Dest\n";
                 //send_addr.sin_addr.s_addr = inet_addr(destination.c_str());
-
-
-
 
                 sendto(sockfd, packet, packet->iph.iph_len, MSG_CONFIRM, (struct sockaddr *) &send_addr, length);
 
