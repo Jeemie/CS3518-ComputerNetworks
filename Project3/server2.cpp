@@ -304,21 +304,27 @@ int main(int argc, char const *argv[]) {
             size = ftell(bin);
             fseek(bin, 0, SEEK_SET);
             printf("Sending Image\n");
-
+            //fclose(bin);
+            //std::ifstream fin("test.bin");
             sendto(sockfd, &size, sizeof(size), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
             buff = recvfrom(sockfd, &okToGo, sizeof(okToGo), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
 
             char send_buffer[1000], read_buffer[1000];
             if(okToGo == 0){
                 cout << "It's all good to go :D\n";
+
                 while(!feof(bin)){ //write #3
+                //while(fin){
+                    //fin.read(packet->data, 1000);
+                    //size_t count = fin.gcount();
 
                     fread(packet->data, 1, sizeof(packet->data), bin);
                     cout << sizeof(packet->data) << "I'm the size of data \n";
-                    fread(send_buffer, 1, sizeof(send_buffer), bin);
+                    //fread(send_buffer, 1, 1000, bin);
                     //sendto(sockfd, send_buffer, sizeof(send_buffer), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
                     sendto(sockfd, packet, sizeof(struct datagram), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
                     //write(socket, send_buffer, sizeof(send_buffer));
+                    usleep(100000);
                 }
 
             }
@@ -384,27 +390,38 @@ int main(int argc, char const *argv[]) {
             //#3
             //int buf = read(socket, curr, size);
             //buff = recvfrom(sockfd, curr, size, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
-            buff = recvfrom(sockfd, packet, sizeof(struct datagram), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
-            if(buff < 0){
-                cout << "File no read :(\n";
-            } else {
-                cout << "File read :DD\n";
 
-                FILE* image;
+            cout << "File read :DD\n";
+            FILE *image;
 
-                image = fopen("copy3.bin", "w");
-
-                if(image == NULL) {
-                    cout << "Can't open copy file :c\n";
-                }
-                cout << packet->data << "Ouchie ouch\n";
-                fwrite(packet->data, 1, sizeof(imgBuf), image);
-                //fwrite(imgBuf, 1 , sizeof(imgBuf), image);
-                fclose(image);
-
-                exit(1);
+            image = fopen("copy3.bin", "w");
+            if (image == NULL) {
+                cout << "Can't open copy file :c\n";
             }
+            int sizeToGrab = size;
+            while(true) {
 
+                buff = recvfrom(sockfd, packet, sizeof(struct datagram), MSG_WAITALL, (struct sockaddr *) &server_addr,
+                                &length);
+                if (buff < 0) {
+                    cout << "File no read :(\n";
+                } else {
+
+                    //cout << packet->data << "Ouchie ouch\n";
+                    fwrite(packet->data, 1, sizeToGrab, image);
+                    //fwrite(imgBuf, 1 , sizeof(imgBuf), image);
+
+
+                    if(sizeToGrab >1000){
+                        sizeToGrab-=1000;
+                    } else {
+                        fclose(image);
+                        break;
+                    }
+
+                }
+            }
+            exit(1);
             printf("%i Hi\n", packet->iph.iph_ttl);
             inet_ntop(AF_INET, &packet->iph.iph_dest, name, INET_ADDRSTRLEN);
             //std::cout<<"name: "<<packet->iph.iph_dest <<"\n";
