@@ -16,6 +16,8 @@
 #include <netinet/udp.h>
 #include <netinet/in.h>
 #include <unordered_map>
+#include <list>
+#include <iterator>
 using namespace std;
 
 
@@ -303,7 +305,7 @@ int main(int argc, char const *argv[]) {
 
             size = ftell(bin);
             fseek(bin, 0, SEEK_SET);
-            printf("Sending Image\n");
+            //rintf("Sending Image\n");
             //fclose(bin);
             //std::ifstream fin("test.bin");
             sendto(sockfd, &size, sizeof(size), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
@@ -312,25 +314,41 @@ int main(int argc, char const *argv[]) {
             char send_buffer[1000], read_buffer[1000];
             if(okToGo == 0){
                 cout << "It's all good to go :D\n";
-
+                //srand(time(NULL));
+                u_int16_t pktID = 0;
                 while(!feof(bin)){ //write #3
-                //while(fin){
+                    //while(fin){
                     //fin.read(packet->data, 1000);
                     //size_t count = fin.gcount();
 
-                    fread(packet->data, 1, sizeof(packet->data), bin);
-                    cout << sizeof(packet->data) << "I'm the size of data \n";
+//                  fread(packet->data, 1, sizeof(packet->data), bin);
+                    fread(packet->data,  sizeof(packet->data), 1, bin);
+                    //cout << sizeof(packet->data) << "I'm the size of data \n";
+                    packet->iph.iph_ident = pktID;
+                    //cout << packet->iph.iph_ident << ": I'm the pkt ID c:\n";
                     //fread(send_buffer, 1, 1000, bin);
                     //sendto(sockfd, send_buffer, sizeof(send_buffer), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
-                    sendto(sockfd, packet, sizeof(struct datagram), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+                    //cout << sizeof(struct datagram) << "\n";
+
+                    int lol = rand() % 100;
+                    //cout << lol << "Ran num\n";
+                    //if(lol > 60) {
+                        sendto(sockfd, packet, sizeof(struct datagram), MSG_CONFIRM, (struct sockaddr *) &server_addr,
+                               length);
+
+
+                    //} else {
+                        //cout << pktID << " : I'm not being sent!!!\n";
+                    //}
                     //write(socket, send_buffer, sizeof(send_buffer));
+                    pktID++;
                     usleep(100000);
                 }
 
             }
         }
 
-        cout << size << " is the size :D \n";
+        //cout << size << " is the size :D \n";
     } else { //I'm a router :c
 
         //if (router), (IP:oIP), ... -> routingTable.insert
@@ -375,10 +393,10 @@ int main(int argc, char const *argv[]) {
             //TODO: Reject oversized images
 
             //Reading size from server #1
-            printf("Reading size!\n");
+            printf("Waiting for size!\n");
             //read(sockfd, &size, sizeof(uint32_t));
             buff = recvfrom(sockfd, &size, sizeof(size), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
-            cout << size << "Here is the router size o-o\n";
+            //cout << size << "Here is the router size o-o\n";
 
             if(size > 0){okToGo = 0;}
 
@@ -391,35 +409,72 @@ int main(int argc, char const *argv[]) {
             //int buf = read(socket, curr, size);
             //buff = recvfrom(sockfd, curr, size, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
 
-            cout << "File read :DD\n";
+            //cout << "File read :DD\n";
             FILE *image;
 
-            image = fopen("copy3.bin", "w");
+            image = fopen("copy3.bin", "wb");
             if (image == NULL) {
                 cout << "Can't open copy file :c\n";
             }
-            int sizeToGrab = size;
-            while(true) {
+            int sizeRemaining = size;
+            int pckExpected = 0;
+            int numPcktExpected = 0;
+            //int lastPcktID = 0;
+            if(size%1000 == 0){
+                numPcktExpected = (size/1000);
+            }else{
+                numPcktExpected = (size/1000) + 1;
+            }
+            list <int> missingNumbers;
+            while(sizeRemaining > 0) {
 
                 buff = recvfrom(sockfd, packet, sizeof(struct datagram), MSG_WAITALL, (struct sockaddr *) &server_addr,
                                 &length);
                 if (buff < 0) {
-                    cout << "File no read :(\n";
+                    cout << "File no read :( Perhaps it's dropped? \n";
                 } else {
 
-                    //cout << packet->data << "Ouchie ouch\n";
-                    fwrite(packet->data, 1, sizeToGrab, image);
-                    //fwrite(imgBuf, 1 , sizeof(imgBuf), image);
+                    //cout << packet->iph.iph_ident << "Received Pkt ID\n";
 
+                    if(packet->iph.iph_ident == pckExpected){
 
-                    if(sizeToGrab >1000){
-                        sizeToGrab-=1000;
+                        pckExpected++;
                     } else {
+                        //int pcktDiff = packet->iph.iph_ident - pckExpected;
+
+                        while(pckExpected < packet->iph.iph_ident){
+                            missingNumbers.push_back(pckExpected);
+                            pckExpected++;
+
+                        }
+
+                        //pckExpected+=(pcktDiff+1);
+
+                    }
+                    cout << sizeof(char) << " " << sizeRemaining << "\n";
+
+                    if(sizeRemaining >1000){
+
+                        sizeRemaining-=1000;
+                        fwrite(packet->data, sizeof(char), 1000, image);
+
+                    } else {
+
+                        fwrite(packet->data, sizeof(char), sizeRemaining, image);
                         fclose(image);
                         break;
                     }
+                    //fwrite(imgBuf, 1 , sizeof(imgBuf), image);
+
+
+
 
                 }
+            }
+
+            list <int> :: iterator i;
+            for(i = missingNumbers.begin(); i != missingNumbers.end(); ++i){
+                cout << '\t' << *i << '\n';
             }
             exit(1);
             printf("%i Hi\n", packet->iph.iph_ttl);
