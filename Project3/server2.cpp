@@ -312,10 +312,13 @@ int main(int argc, char const *argv[]) {
             if(okToGo == 0){
                 cout << "It's all good to go :D\n";
                 while(!feof(bin)){ //write #3
+
+                    fread(packet->data, 1, sizeof(packet->data), bin);
+                    cout << sizeof(packet->data) << "I'm the size of data \n";
                     fread(send_buffer, 1, sizeof(send_buffer), bin);
-                    sendto(sockfd, send_buffer, sizeof(send_buffer), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+                    //sendto(sockfd, send_buffer, sizeof(send_buffer), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
+                    sendto(sockfd, packet, sizeof(struct datagram), MSG_CONFIRM, (struct sockaddr *) &server_addr, length);
                     //write(socket, send_buffer, sizeof(send_buffer));
-                    //buf = fread(send_buffer, 1, sizeof(send_buffer), QR_PIC);
                 }
 
             }
@@ -380,8 +383,8 @@ int main(int argc, char const *argv[]) {
 
             //#3
             //int buf = read(socket, curr, size);
-            buff = recvfrom(sockfd, curr, size, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
-
+            //buff = recvfrom(sockfd, curr, size, MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
+            buff = recvfrom(sockfd, packet, sizeof(struct datagram), MSG_WAITALL, (struct sockaddr *) &server_addr, &length);
             if(buff < 0){
                 cout << "File no read :(\n";
             } else {
@@ -389,16 +392,19 @@ int main(int argc, char const *argv[]) {
 
                 FILE* image;
 
-                image = fopen("copy2.bin", "w");
+                image = fopen("copy3.bin", "w");
 
-                if(image == NULL){
+                if(image == NULL) {
                     cout << "Can't open copy file :c\n";
                 }
-
-                fwrite(imgBuf, 1, sizeof(imgBuf), image);
+                cout << packet->data << "Ouchie ouch\n";
+                fwrite(packet->data, 1, sizeof(imgBuf), image);
+                //fwrite(imgBuf, 1 , sizeof(imgBuf), image);
                 fclose(image);
+
+                exit(1);
             }
-            
+
             printf("%i Hi\n", packet->iph.iph_ttl);
             inet_ntop(AF_INET, &packet->iph.iph_dest, name, INET_ADDRSTRLEN);
             //std::cout<<"name: "<<packet->iph.iph_dest <<"\n";
